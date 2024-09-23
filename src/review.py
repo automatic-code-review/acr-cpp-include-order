@@ -54,6 +54,14 @@ def is_equals(first, second):
     return True
 
 
+def ordered_to_string(ordered):
+    strings = []
+    for order in ordered:
+        strings.append(f"- `{order}`")
+
+    return "<br>".join(strings)
+
+
 def process_file(full_path, comment_description_pattern, path_source, regex_order):
     comments = []
     include_list = []
@@ -73,7 +81,7 @@ def process_file(full_path, comment_description_pattern, path_source, regex_orde
             comment_path = f"{full_path}".replace(path_source, "")[1:]
             comment_description=f"{comment_description_pattern}"
             comment_description = comment_description.replace("${FILE_PATH}", comment_path)
-            comment_description = comment_description.replace("${ORDERED}", "<br>".join(ordered))
+            comment_description = comment_description.replace("${ORDERED}", ordered_to_string(ordered))
 
             comments.append(commons.comment_create(
                 comment_id=commons.comment_generate_id(comment_path),
