@@ -15,21 +15,22 @@ def review(config):
         if full_path.endswith(('.h', '.cpp')):
             for comment in process_file(full_path, comment_description, path_source, regex_order):
                 comments.append(comment)
-
     
     return comments
 
 def get_include_list_ordered(include_list, full_path, regex_order):
     include_list_ordered = []
+    regex_order_copy = []
+    regex_order_copy.extend(regex_order)
 
     if full_path.endswith(".cpp"):
         header_file = full_path.split("/")
         header_file = header_file[len(header_file)-1]
         header_file = header_file.replace(".cpp", ".h")
-        regex_order.insert(0, f"#include \"{header_file}\"")
-        regex_order.insert(0, f"#include \".*/{header_file}\"")
+        regex_order_copy.insert(0, f"#include \"{header_file}\"")
+        regex_order_copy.insert(0, f"#include \".*/{header_file}\"")
 
-    for regex in regex_order:
+    for regex in regex_order_copy:
         not_add_list = []
 
         for include in include_list:
@@ -39,6 +40,7 @@ def get_include_list_ordered(include_list, full_path, regex_order):
                 not_add_list.append(include)
         
         include_list = not_add_list
+
 
     return include_list_ordered;
 
