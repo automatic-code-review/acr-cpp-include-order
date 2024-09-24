@@ -27,6 +27,7 @@ def get_include_list_ordered(include_list, full_path, regex_order):
         header_file = full_path.split("/")
         header_file = header_file[len(header_file)-1]
         header_file = header_file.replace(".cpp", ".h")
+        regex_order_copy.insert(0, f"#include \"ui_{header_file}\"")
         regex_order_copy.insert(0, f"#include \"{header_file}\"")
         regex_order_copy.insert(0, f"#include \".*/{header_file}\"")
 
