@@ -90,7 +90,7 @@ def process_file(full_path, comment_description_pattern, path_source, regex_orde
             comment_description = comment_description.replace("${ORDERED}", ordered_to_string(ordered))
 
             comments.append(commons.comment_create(
-                comment_id=commons.comment_generate_id(comment_path),
+                comment_id=commons.comment_generate_id(comment_description),
                 comment_path=comment_path,
                 comment_description=comment_description,
                 comment_snipset=False,
