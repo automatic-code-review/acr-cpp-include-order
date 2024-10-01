@@ -33,6 +33,8 @@ def get_include_list_ordered(include_list, full_path, regex_order):
         regex_order_copy.insert(0, f"#include \"ui_{header_file}\"")
         regex_order_copy.insert(0, f"#include \"{header_file}\"")
         regex_order_copy.insert(0, f"#include \".*/{header_file}\"")
+        regex_order_copy.insert(0, f"#include <{header_file}>")
+        regex_order_copy.insert(0, f"#include <.*/{header_file}>")
 
     for regex in regex_order_copy:
         not_add_list = []
