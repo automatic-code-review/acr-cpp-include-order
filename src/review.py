@@ -1,65 +1,151 @@
-import automatic_code_review_commons as commons
 import re
 
-def review(config):
-    regex_order = config['regexOrder']
-    path_source = config['path_source']
-    changes = config['merge']['changes']
-    comment_description = config['message']
-    
-    comments = []
+import automatic_code_review_commons as commons
 
-    for change in changes:
-        if change['deleted_file']:
-            continue
 
-        full_path = path_source + "/" + change['new_path']
+def remove_duplicate_include(includes):
+    retorno = []
 
-        if full_path.endswith(('.h', '.cpp')):
-            for comment in process_file(full_path, comment_description, path_source, regex_order):
-                comments.append(comment)
-    
-    return comments
+    for include in includes:
+        if include not in retorno:
+            retorno.append(include)
 
-def get_include_list_ordered(include_list, full_path, regex_order):
+    return retorno
+
+
+def adjust_order(include_list, path, regex_order):
     include_list_ordered = []
     regex_order_copy = []
     regex_order_copy.extend(regex_order)
 
-    if full_path.endswith(".cpp"):
-        header_file = full_path.split("/")
-        header_file = header_file[len(header_file)-1]
+    if path.endswith(".cpp"):
+        header_file = path.split("/")
+        header_file = header_file[len(header_file) - 1]
         header_file = header_file.replace(".cpp", ".h")
-        regex_order_copy.insert(0, f"#include \"ui_{header_file}\"")
-        regex_order_copy.insert(0, f"#include \"{header_file}\"")
-        regex_order_copy.insert(0, f"#include \".*/{header_file}\"")
-        regex_order_copy.insert(0, f"#include <{header_file}>")
-        regex_order_copy.insert(0, f"#include <.*/{header_file}>")
 
-    for regex in regex_order_copy:
-        not_add_list = []
+        regex_order_copy.insert(0, {
+            "orderType": "individual",
+            "regex": [
+                f"#include <{header_file}>",
+                f"#include <.*/{header_file}>",
+                f"#include \"{header_file}\"",
+                f"#include \".*/{header_file}\"",
+                f"#include \"ui_{header_file}\"",
+            ]
+        })
 
-        for include in include_list:
-            if re.match(regex, include):
-                include_list_ordered.append(include)
-            else:
-                not_add_list.append(include)
-        
-        include_list = not_add_list
+    for regex_obj in regex_order_copy:
+        include_by_group = []
+
+        for regex in regex_obj['regex']:
+            not_add_list = []
+            include_by_current = []
+
+            for include in include_list:
+                if re.match(regex, include):
+                    include_by_current.append(f"{include}\n")
+                else:
+                    not_add_list.append(include)
+
+            if regex_obj['orderType'] == 'individual':
+                include_by_current.sort()
+
+            include_by_group.extend(include_by_current)
+            include_list = not_add_list
+
+        if regex_obj['orderType'] == 'group':
+            include_by_group.sort()
+
+        include_list_ordered.extend(include_by_group)
+        include_list_ordered.append("\n")
+
+    return include_list_ordered
 
 
-    return include_list_ordered;
+def remove_linhas_brancas_consecutivas(lista_strings):
+    resultado = []
+    linhas_em_branco = 0
 
-def is_equals(first, second):
-    if len(first) != len(second):
-        return False
-    
-    max_index = len(first)-1
-    for i in range(0, max_index):
-        if first[i] != second[i]:
-            return False
-    
-    return True
+    for linha in lista_strings:
+        if linha.strip() == "":
+            linhas_em_branco += 1
+            if linhas_em_branco == 1:
+                resultado.append(linha)
+        else:
+            linhas_em_branco = 0
+            resultado.append(linha)
+
+    return resultado
+
+
+def check_order_changed(lines_changed, lines_original):
+    lines_include_changed = []
+    lines_include_original = []
+
+    for line in lines_original:
+        line = line.strip()
+
+        if line.startswith("#include") and ".moc" not in line:
+            lines_include_original.append(line)
+
+    for line in lines_changed:
+        line = line.strip()
+
+        if line.startswith("#include") and ".moc" not in line:
+            lines_include_changed.append(line)
+
+    return lines_include_original != lines_include_changed
+
+
+def verify(path, regex_order):
+    with open(path, 'r') as arquivo:
+        lines = arquivo.readlines()
+
+    lines_without_include = []
+    lines_include = []
+    lines_to_ignore = []
+
+    if path.endswith(".h"):
+        header_file = path.split("/")
+        header_file = header_file[len(header_file) - 1].upper()
+        header_file = header_file.replace(".H", "_H")
+        header_file = header_file.replace("-", "")
+        lines_to_ignore.append(f"#ifndef {header_file}\n")
+        lines_to_ignore.append(f"#define {header_file}\n")
+
+    for line in lines:
+        if line in lines_to_ignore:
+            continue
+
+        line_original = line
+        line = line.strip()
+
+        if line.startswith("#include") and ".moc" not in line:
+            lines_include.append(line)
+        else:
+            lines_without_include.append(line_original)
+
+    lines_include = remove_duplicate_include(lines_include)
+    lines_include_ordered = adjust_order(lines_include, path, regex_order)
+
+    linhas_fix = lines_to_ignore
+    linhas_fix.append("\n")
+    linhas_fix.extend(lines_include_ordered)
+    linhas_fix.append("\n")
+    linhas_fix.extend(lines_without_include)
+
+    linhas_fix = remove_linhas_brancas_consecutivas(linhas_fix)
+
+    if linhas_fix[0] == "\n":
+        linhas_fix = linhas_fix[1:]
+
+    lines_include_ordered = remove_linhas_brancas_consecutivas(lines_include_ordered)
+
+    if check_order_changed(linhas_fix, lines):
+        print('MUDOU ALGUMA ORDEM')
+        return True, lines_include_ordered, linhas_fix
+
+    return False, lines_include_ordered, linhas_fix
 
 
 def ordered_to_string(ordered):
@@ -70,35 +156,39 @@ def ordered_to_string(ordered):
     return "<br>".join(strings)
 
 
-def process_file(full_path, comment_description_pattern, path_source, regex_order):
+def review(config):
+    regex_order = config['regexOrder']
+    path_source = config['path_source']
+    changes = config['merge']['changes']
+    comment_description_pattern = config['message']
+
     comments = []
-    include_list = []
 
-    with open(full_path, 'r', encoding='utf-8') as f:
-        linhas = f.readlines()
+    for change in changes:
+        new_path = change['new_path']
+        full_path = path_source + "/" + new_path
 
-        for linha in linhas:
-            if re.match(r'^\s*#include\s*', linha):
-                include = linha.replace("\n", "").strip()
-                include_list.append(include)
+        if not full_path.endswith(('.h', '.cpp', '.hpp', '.c')):
+            continue
 
-    if len(include_list) > 0:
-        ordered = get_include_list_ordered(include_list, full_path, regex_order)
+        changed, ordered, _ = verify(path=full_path, regex_order=regex_order)
 
-        if not is_equals(include_list, ordered):
-            comment_path = f"{full_path}".replace(path_source, "")[1:]
-            comment_description=f"{comment_description_pattern}"
-            comment_description = comment_description.replace("${FILE_PATH}", comment_path)
-            comment_description = comment_description.replace("${ORDERED}", ordered_to_string(ordered))
+        if not changed:
+            continue
 
-            comments.append(commons.comment_create(
-                comment_id=commons.comment_generate_id(comment_description),
-                comment_path=comment_path,
-                comment_description=comment_description,
-                comment_snipset=False,
-                comment_end_line=1,
-                comment_start_line=1,
-                comment_language=None,
-            ))
-    
+        comment_path = new_path
+        comment_description = f"{comment_description_pattern}"
+        comment_description = comment_description.replace("${FILE_PATH}", comment_path)
+        comment_description = comment_description.replace("${ORDERED}", ordered_to_string(ordered))
+
+        comments.append(commons.comment_create(
+            comment_id=commons.comment_generate_id(comment_description),
+            comment_path=comment_path,
+            comment_description=comment_description,
+            comment_snipset=False,
+            comment_end_line=1,
+            comment_start_line=1,
+            comment_language=None,
+        ))
+
     return comments
