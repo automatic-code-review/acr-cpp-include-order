@@ -113,6 +113,14 @@ def verify(path, regex_order):
         lines_to_ignore.append(f"#ifndef {header_file}\n")
         lines_to_ignore.append(f"#define {header_file}\n")
 
+    if path.endswith(".hpp"):
+        header_file = path.split("/")
+        header_file = header_file[len(header_file) - 1].upper()
+        header_file = header_file.replace(".HPP", "_H")
+        header_file = header_file.replace("-", "")
+        lines_to_ignore.append(f"#ifndef {header_file}\n")
+        lines_to_ignore.append(f"#define {header_file}\n")
+
     for line in lines:
         if line in lines_to_ignore:
             continue
