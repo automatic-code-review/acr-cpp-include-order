@@ -97,21 +97,44 @@ def check_order_changed(lines_changed, lines_original):
     return lines_include_original != lines_include_changed
 
 
+def get_start_comment(lines):
+    lines_comment = []
+
+    index = 0
+    for line in lines:
+        if line.startswith("//"):
+            lines_comment.append(line)
+            index += 1
+            continue
+
+        break
+
+    return lines_comment, lines[index:]
+
+
 def verify(path, regex_order):
     with open(path, 'r') as arquivo:
         lines = arquivo.readlines()
 
     lines_without_include = []
     lines_include = []
-    lines_to_ignore = []
+    lines_to_ignore, lines = get_start_comment(lines)
 
     if path.endswith(".h"):
-        header_file = path.split("/")
-        header_file = header_file[len(header_file) - 1].upper()
-        header_file = header_file.replace(".H", "_H")
-        header_file = header_file.replace("-", "")
-        lines_to_ignore.append(f"#ifndef {header_file}\n")
-        lines_to_ignore.append(f"#define {header_file}\n")
+        if "#pragma once" in lines[0]:
+            lines_to_ignore.append(lines[0])
+        else:
+            header_file = path.split("/")
+            header_file = header_file[len(header_file) - 1].upper()
+            if "_p.h" in header_file:
+                header_file = header_file.replace(".H", "_H")
+                header_file = header_file.replace("_P", "PRIVATE")
+            else:
+                header_file = header_file.replace(".H", "_H")
+                header_file = header_file.replace("-", "")
+
+            lines_to_ignore.append(f"#ifndef {header_file}\n")
+            lines_to_ignore.append(f"#define {header_file}\n")
 
     if path.endswith(".hpp"):
         header_file = path.split("/")
@@ -150,7 +173,7 @@ def verify(path, regex_order):
     lines_include_ordered = remove_linhas_brancas_consecutivas(lines_include_ordered)
 
     if check_order_changed(linhas_fix, lines):
-        print('MUDOU ALGUMA ORDEM')
+        print(f'MUDOU ALGUMA ORDEM: {path}')
         return True, lines_include_ordered, linhas_fix
 
     return False, lines_include_ordered, linhas_fix
