@@ -196,6 +196,9 @@ def review(config):
     comments = []
 
     for change in changes:
+        if change['deleted_file']:
+            continue
+
         new_path = change['new_path']
         full_path = path_source + "/" + new_path
 
