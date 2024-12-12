@@ -113,6 +113,8 @@ def get_start_comment(lines):
 
 
 def verify(path, regex_order):
+    print(f"Verificando arquivo {path}")
+
     with open(path, 'r') as arquivo:
         lines = arquivo.readlines()
 
@@ -120,7 +122,7 @@ def verify(path, regex_order):
     lines_include = []
     lines_to_ignore, lines = get_start_comment(lines)
 
-    if path.endswith(".h"):
+    if path.endswith(".h") and len(lines) > 0:
         if "#pragma once" in lines[0]:
             lines_to_ignore.append(lines[0])
         else:
