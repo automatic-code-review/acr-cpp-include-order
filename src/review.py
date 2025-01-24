@@ -181,12 +181,8 @@ def verify(path, regex_order):
     return False, lines_include_ordered, linhas_fix
 
 
-def ordered_to_string(ordered):
-    strings = []
-    for order in ordered:
-        strings.append(f"- `{order}`")
-
-    return "<br>".join(strings)
+def ordered_to_string(ordered):    
+    return "<pre>"+"".join([order.replace("\n", "<br>") for order in ordered[1:-1]])+"</pre>"
 
 
 def review(config):
