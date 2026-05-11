@@ -146,29 +146,17 @@ def verify(path, regex_order):
         lines_to_ignore.append(f"#ifndef {header_file}\n")
         lines_to_ignore.append(f"#define {header_file}\n")
 
-    preprocessor_depth = 0
-
     for line in lines:
         if line in lines_to_ignore:
             continue
 
-        line_stripped = line.strip()
+        line_original = line
+        line = line.strip()
 
-        if line_stripped.startswith(('#ifdef ', '#ifndef ', '#if ')):
-            preprocessor_depth += 1
-            lines_without_include.append(line)
-        elif line_stripped.startswith(('#elif ', '#else')):
-            lines_without_include.append(line)
-        elif line_stripped == '#endif':
-            preprocessor_depth -= 1
-            lines_without_include.append(line)
-        elif line_stripped.startswith("#include") and ".moc" not in line_stripped:
-            if preprocessor_depth > 0:
-                lines_without_include.append(line)
-            else:
-                lines_include.append(line_stripped)
+        if line.startswith("#include") and ".moc" not in line:
+            lines_include.append(line)
         else:
-            lines_without_include.append(line)
+            lines_without_include.append(line_original)
 
     lines_include = remove_duplicate_include(lines_include)
     lines_include_ordered = adjust_order(lines_include, path, regex_order)
