@@ -1,3 +1,29 @@
 config.json
-**__pycache__**
-.idea
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Test and tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# IDE/editor folders
+.idea/
+.vscode/
+
+# OS artifacts
+.DS_Store
+Thumbs.db

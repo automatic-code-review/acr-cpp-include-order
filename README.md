@@ -34,3 +34,28 @@ Arquivo config.json
   ]
 }
 ```
+
+## Como rodar o teste unitario
+
+Opcao recomendada (com venv):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m unittest discover -s tests -p "test_*.py" -q
+```
+
+Para sair do ambiente virtual:
+
+```bash
+deactivate
+```
+
+Opcao sem venv (usando Python do sistema):
+
+```bash
+/usr/bin/python3 -m unittest discover -s tests -p "test_*.py" -q
+```
+
+Esse comando executa todos os arquivos de teste dentro de `tests/` que comecam com `test_`.

@@ -97,6 +97,14 @@ def check_order_changed(lines_changed, lines_original):
     return lines_include_original != lines_include_changed
 
 
+def is_preprocessor_conditional_start(line):
+    return line.startswith("#if")
+
+
+def is_preprocessor_conditional_end(line):
+    return line.startswith("#endif")
+
+
 def get_start_comment(lines):
     lines_comment = []
 
@@ -146,12 +154,30 @@ def verify(path, regex_order):
         lines_to_ignore.append(f"#ifndef {header_file}\n")
         lines_to_ignore.append(f"#define {header_file}\n")
 
+    preprocessor_conditional_depth = 0
+
     for line in lines:
         if line in lines_to_ignore:
             continue
 
         line_original = line
         line = line.strip()
+
+        if is_preprocessor_conditional_end(line):
+            preprocessor_conditional_depth = max(0, preprocessor_conditional_depth - 1)
+
+        if preprocessor_conditional_depth > 0:
+            lines_without_include.append(line_original)
+
+            if is_preprocessor_conditional_start(line):
+                preprocessor_conditional_depth += 1
+
+            continue
+
+        if is_preprocessor_conditional_start(line):
+            preprocessor_conditional_depth += 1
+            lines_without_include.append(line_original)
+            continue
 
         if line.startswith("#include") and ".moc" not in line:
             lines_include.append(line)
