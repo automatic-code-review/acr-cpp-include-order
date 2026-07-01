@@ -59,3 +59,18 @@ Opcao sem venv (usando Python do sistema):
 ```
 
 Esse comando executa todos os arquivos de teste dentro de `tests/` que comecam com `test_`.
+
+## Cobertura
+
+Para medir cobertura considerando apenas os modulos principais:
+
+```bash
+python -m coverage run --rcfile=.coveragerc -m unittest discover -s tests -p 'test_*.py' -v
+python -m coverage report --rcfile=.coveragerc -m
+```
+
+Para sair do ambiente virtual:
+
+```bash
+deactivate
+```

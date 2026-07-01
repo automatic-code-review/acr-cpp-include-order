@@ -1,0 +1,14 @@
+[run]
+branch = True
+source = src
+
+[report]
+include =
+    src/review.py
+    src/autofix.py
+omit =
+    tests/*
+    src/autofix_by_*.py
+    src/__pycache__/*
+show_missing = True
+skip_empty = True
