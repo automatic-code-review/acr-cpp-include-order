@@ -1,5 +1,8 @@
 import unittest
+import tempfile
+from pathlib import Path
 from html import escape
+from unittest import mock
 
 import automatic_code_review_commons as commons
 from src import review as review_module
@@ -86,4 +89,120 @@ class ReviewTests(unittest.TestCase):
 
         comments = review_module.review(config)
 
+        self.assertEqual(comments, [])
+
+    def test_remove_duplicate_include_remove_repetidos(self):
+        includes = ["#include <a>", "#include <b>", "#include <a>"]
+
+        deduplicados = review_module.remove_duplicate_include(includes)
+
+        self.assertEqual(deduplicados, ["#include <a>", "#include <b>"])
+
+    def test_adjust_order_para_header_nao_injeta_header_cpp(self):
+        ordered = review_module.adjust_order(
+            include_list=["#include <z>", "#include <a>"],
+            path="sample.h",
+            regex_order=[{"orderType": "group", "regex": [r"#include <.*>"]}],
+        )
+
+        self.assertEqual(ordered, ["#include <a>\n", "#include <z>\n", "\n"])
+
+    def test_get_start_comment_sem_comentario_inicial(self):
+        comments, remainder = review_module.get_start_comment(["#include <a>\n", "int main();\n"])
+
+        self.assertEqual(comments, [])
+        self.assertEqual(remainder, ["#include <a>\n", "int main();\n"])
+
+    def test_verify_header_com_pragma_once(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_path = Path(temp_dir) / "widget.h"
+            file_path.write_text("#pragma once\n#include <a>\n", encoding="utf-8")
+
+            changed, _, fixed = review_module.verify(
+                path=str(file_path),
+                regex_order=[{"orderType": "group", "regex": [r"#include <.*>"]}],
+            )
+
+            self.assertFalse(changed)
+            self.assertIn("#pragma once\n", fixed)
+
+    def test_verify_header_private_guard_para_p_h(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_path = Path(temp_dir) / "widget_p.h"
+            file_path.write_text("#include <z>\n", encoding="utf-8")
+
+            _, _, fixed = review_module.verify(
+                path=str(file_path),
+                regex_order=[{"orderType": "group", "regex": [r"#include <.*>"]}],
+            )
+
+            self.assertEqual(fixed[0], "#ifndef WIDGET_P_H\n")
+            self.assertEqual(fixed[1], "#define WIDGET_P_H\n")
+
+    def test_verify_hpp_gera_include_guard(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_path = Path(temp_dir) / "my-widget.hpp"
+            file_path.write_text("#include <z>\n", encoding="utf-8")
+
+            _, _, fixed = review_module.verify(
+                path=str(file_path),
+                regex_order=[{"orderType": "group", "regex": [r"#include <.*>"]}],
+            )
+
+            self.assertEqual(fixed[0], "#ifndef MYWIDGET_H\n")
+            self.assertEqual(fixed[1], "#define MYWIDGET_H\n")
+
+    def test_verify_preserva_condicionais_aninhadas(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_path = Path(temp_dir) / "nested.cpp"
+            file_path.write_text(
+                "#if A\n"
+                "#if B\n"
+                "#include <z>\n"
+                "#endif\n"
+                "#endif\n"
+                "#include <a>\n",
+                encoding="utf-8",
+            )
+
+            changed, _, fixed = review_module.verify(
+                path=str(file_path),
+                regex_order=[{"orderType": "group", "regex": [r"#include <.*>"]}],
+            )
+
+            self.assertTrue(changed)
+            self.assertIn("#if A\n", fixed)
+            self.assertIn("#if B\n", fixed)
+            self.assertIn("#include <z>\n", fixed)
+
+    def test_verify_remove_linha_inicial_em_branco(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_path = Path(temp_dir) / "blank.cpp"
+            file_path.write_text("int a = 0;\n", encoding="utf-8")
+
+            changed, _, fixed = review_module.verify(
+                path=str(file_path),
+                regex_order=[{"orderType": "group", "regex": [r"#include <.*>"]}],
+            )
+
+            self.assertFalse(changed)
+            self.assertNotEqual(fixed[0], "\n")
+
+    def test_review_ignora_deleted_file_e_extensao_invalida(self):
+        config = {
+            "regexOrder": [{"orderType": "group", "regex": [r"#include <.*>"]}],
+            "path_source": "tests/fixtures",
+            "merge": {
+                "changes": [
+                    {"deleted_file": True, "new_path": "sample.cpp"},
+                    {"deleted_file": False, "new_path": "notes.txt"},
+                ]
+            },
+            "message": "msg ${FILE_PATH} ${ORDERED}",
+        }
+
+        with mock.patch.object(review_module, "verify") as verify_mock:
+            comments = review_module.review(config)
+
+        verify_mock.assert_not_called()
         self.assertEqual(comments, [])
