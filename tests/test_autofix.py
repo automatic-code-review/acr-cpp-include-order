@@ -94,3 +94,65 @@ class AutofixImportTests(unittest.TestCase):
 
             verify_mock.assert_called_once()
             self.assertFalse(changed)
+
+    def test_autofix_header_ordena_somente_includes_fora_de_ifdef(self):
+        from src import autofix as autofix_module
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            header_path = temp_path / "myclass.h"
+
+            header_path.write_text(
+                "#ifdef MYCLASS_H\n"
+                "#include \"zeta.h\"\n"
+                "#ifdef __linux__\n"
+                "#include <linux/input.h>\n"
+                "#endif\n"
+                "#include \"alpha.h\"\n"
+                "#endif\n"
+                "\n"
+                "#include <vector>\n"
+                "#include <algorithm>\n"
+                "\n"
+                "#ifndef FINAL\n"
+                "int final_value = 1;\n"
+                "#endif\n",
+                encoding="utf-8",
+            )
+
+            config = {
+                "regexOrder": [
+                    {
+                        "orderType": "group",
+                        "regex": [
+                            r"#include <.*>",
+                            r"#include \".*\"",
+                        ],
+                    }
+                ]
+            }
+
+            changed = autofix_module.autofix(path=str(header_path), config=config)
+
+            self.assertTrue(changed)
+
+            lines = header_path.read_text(encoding="utf-8").splitlines()
+
+            self.assertIn("#ifndef MYCLASS_H", lines)
+            self.assertIn("#define MYCLASS_H", lines)
+
+            idx_algorithm = lines.index("#include <algorithm>")
+            idx_vector = lines.index("#include <vector>")
+            idx_ifdef_guard = lines.index("#ifdef MYCLASS_H")
+
+            # Includes no escopo principal devem ser ordenados antes dos blocos condicionais.
+            self.assertLess(idx_algorithm, idx_vector)
+            self.assertLess(idx_vector, idx_ifdef_guard)
+
+            # Includes dentro do condicional devem manter a ordem original.
+            idx_zeta = lines.index("#include \"zeta.h\"")
+            idx_linux = lines.index("#include <linux/input.h>")
+            idx_alpha = lines.index("#include \"alpha.h\"")
+
+            self.assertLess(idx_zeta, idx_linux)
+            self.assertLess(idx_linux, idx_alpha)
