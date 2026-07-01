@@ -30,6 +30,7 @@ jobs:
       - name: Run tests with coverage
         id: coverage
         run: |
+          set -o pipefail
           python -m coverage run --rcfile=.coveragerc -m unittest discover -s tests -p 'test_*.py' -v
           python -m coverage report --rcfile=.coveragerc --fail-under=90 -m | tee coverage_report.txt
           COVERAGE_PERCENT=$(awk '/^TOTAL/ {print $NF}' coverage_report.txt)
